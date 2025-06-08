@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chart.js 資材算定 CO2排出量シミュレーション</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <style>
+        /* 基本的なスタイルは前回と同様 */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        h1, h2, h3 { /* h3 も追加 */
+            text-align: center;
+            color: #2c3e50;
+        }
+        .chart-section {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap; /* 小さい画面で折り返す */
+            margin-bottom: 20px;
+        }
+        #pieChartContainer, #barChartContainer {
+            flex: 1; /* flex item が均等な幅を占めるように */
+            max-width: 48%; /* 2つ並べて表示 */
+            min-width: 350px; /* 最小幅 */
+            margin: 10px; /* 各コンテナ間のスペース */
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-sizing: border-box; /* パディングとボーダーを幅に含める */
+        }
+        @media (max-width: 768px) {
+            #pieChartContainer, #barChartContainer {
+                max-width: 95%; /* 1列にする */
+            }
+        }
+
+        #totalAmountDisplay {
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-top: 15px;
+            color: #34495e;
+        }
+        #comparisonDisplay, #barChartComparisonDisplay { /* 両方の表示エリアに適用 */
+            text-align: center;
+            margin-top: 10px;
+            font-size: 1.1em;
+            color: #555;
+        }
+        .comparison-label {
+            font-weight: normal;
+        }
+        .positive {
+            color: #28a745; /* 緑色 */
+        }
+        .negative {
+            color: #dc3545; /* 赤色 */
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+            font-size: 0.95em;
+        }
+        th {
+            background-color: #eaf2f8;
+            color: #2c3e50;
+        }
+        td input[type="number"] {
+            width: 90%;
+            padding: 8px;
+            border: 1px solid #b0c4de;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .total-row {
+            font-weight: bold;
+            background-color: #d6eaf8;
+            color: #2c3e50;
+        }
+        .amount-cell { /* CO2排出量表示に再利用 */
+            font-weight: bold;
+            text-align: right;
+        }
+        .product-name { /* 資材名表示に再利用 */
+            cursor: pointer;
+            color: #007bff;
+            text-decoration: underline;
+            margin-right: 5px; /* ボタンとの間にスペース */
+        }
+        .product-name:hover {
+            color: #0056b3;
+        }
+        /* グローバル履歴ボタンのスタイル */
+        #showInitialChartButton { /* 変更前ボタンのみ */
+            display: block;
+            margin: 20px auto 10px auto; /* 上下のマージン調整 */
+            padding: 10px 20px;
+            background-color: #6c757d; /* グレー系に */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        #showInitialChartButton:hover {
+            background-color: #5a6268;
+        }
+
+
+        /* モーダルの共通スタイル */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto; /* 上部の余白を調整 */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 90%; /* モーダルの幅を広げる */
+            max-width: 800px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        /* 新しい詳細モーダル用のスタイル */
+        #detailModal .modal-content {
+            margin: 2% auto; /* グラフモーダルと同じように上部の余白を調整 */
+            max-width: 900px; /* 少し広めに設定 */
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        /* モーダル内のテーブルスタイル */
+        .modal-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .modal-content th, .modal-content td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            font-size: 0.9em;
+        }
+        .modal-content th {
+            background-color: #f2f2f2;
+        }
+        #alternativeList tbody tr {
+            cursor: pointer;
+        }
+        #alternativeList tbody tr:hover {
+            background-color: #f0f0f0;
+        }
+        .alt-price-cell { /* 排出量（原単位）表示に再利用 */
+            text-align: right;
+        }
+
+
+        /* 更新ボタンのスタイル (モーダル内にも適用) */
+        .modal-content #updateChartButton {
+            display: block;
+            margin: 20px auto 0 auto; /* 下の余白をなくす */
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .modal-content #updateChartButton:hover {
+            background-color: #218838;
+        }
+        /* メイン画面のボタンは非表示（モーダル内に移動するため） */
+        #updateChartButtonMain {
+            display: none;
+        }
+
+        /* 棒グラフ下の履歴表示エリアのスタイル */
+        #historyDisplayArea {
+            margin-top: 20px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 98%; /* 画面幅に合わせて調整 */
+            margin-left: auto;
+            margin-right: auto;
+            box-sizing: border-box;
+        }
+        #historyDisplayArea h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            text-align: left; /* 左寄せに */
+            color: #2c3e50;
+        }
+        #historyDisplayArea .history-content {
+            max-height: 250px; /* 表示する最大の高さ */
+            overflow-y: auto; /* 高さを超えたらスクロール */
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 10px;
+            background-color: #fdfdfd;
+        }
+        #historyDisplayArea table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #historyDisplayArea th, #historyDisplayArea td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            font-size: 0.85em; /* 小さめのフォント */
+        }
+        #historyDisplayArea th {
+            background-color: #f2f2f2;
+            position: sticky; /* ヘッダーを固定 */
+            top: 0;
+            z-index: 1; /* 他のコンテンツの上に表示 */
+        }
+        /* 履歴テーブルの特定の列の幅を調整 */
+        #historyDisplayArea th:nth-child(1), #historyDisplayArea td:nth-child(1) { width: 15%; /* 日時 */ }
+        #historyDisplayArea th:nth-child(2), #historyDisplayArea td:nth-child(2) { width: 10%; /* 工程 */ }
+        #historyDisplayArea th:nth-child(3), #historyDisplayArea td:nth-child(3) { width: 15%; /* 資材名 (変更前) */ }
+        #historyDisplayArea th:nth-child(4), #historyDisplayArea td:nth-child(4) { width: 10%; /* 変更前原単位 */ }
+        #historyDisplayArea th:nth-child(5), #historyDisplayArea td:nth-child(5) { width: 15%; /* 資材名 (変更後) */ }
+        #historyDisplayArea th:nth-child(6), #historyDisplayArea td:nth-child(6) { width: 10%; /* 変更後原単位 */ }
+        #historyDisplayArea th:nth-child(7), #historyDisplayArea td:nth-child(7) { width: 5%; /* 単位 */ }
+
+
+        /* 比較グラフ用モーダルのスタイル */
+        #comparisonChartModal .modal-content {
+            max-width: 1200px; /* 2つのグラフを並べるために幅を広くする */
+            width: 95%;
+        }
+        .chart-comparison-container {
+            display: flex;
+            justify-content: center; /* 中央寄せ */
+            flex-wrap: wrap; /* 画面が小さい場合に折り返す */
+            gap: 20px; /* グラフ間のスペース */
+            margin-top: 20px;
+        }
+        .chart-comparison-item {
+            flex: 1; /* 均等な幅を占める */
+            min-width: 450px; /* グラフの最小幅 */
+            max-width: 550px; /* グラフの最大幅 */
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+            box-sizing: border-box;
+        }
+        .chart-comparison-item h4 {
+            text-align: center;
+            margin-top: 0;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>資材算定 CO2排出量シミュレーション</h1>
+
+    <div class="chart-section">
+        <div id="pieChartContainer">
+            <canvas id="pieChartCanvas"></canvas>
+            <div id="totalAmountDisplay">
+                総CO2排出量: <span id="globalTotalAmount">0 kg-CO2</span>
+            </div>
+            <div id="comparisonDisplay">
+                <span class="comparison-label">変更前合計: </span><span id="initialGlobalTotalAmount">0 kg-CO2</span>
+                <span class="comparison-label"> / 差額: </span><span id="diffAmount">0 kg-CO2</span>
+                <span class="comparison-label"> / 増減率: </span><span id="percentageChange">0.00%</span>
+            </div>
+        </div>
+
+        <div id="barChartContainer">
+            <canvas id="barChartCanvas"></canvas>
+            <div id="barChartComparisonDisplay">
+                <span class="comparison-label">変更前合計: </span><span id="barInitialTotalAmount">0 kg-CO2</span>
+                <span class="comparison-label"> / 差額: </span><span id="barDiffAmount">0 kg-CO2</span>
+                <span class="comparison-label"> / 増減率: </span><span id="barPercentageChange">0.00%</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="historyDisplayArea">
+        <h2>最新の変更履歴</h2>
+        <div class="history-content">
+            <p>ここに資材の変更履歴が表示されます。</p>
+        </div>
+    </div>
+
+
+    <button id="showInitialChartButton">変更前/変更後グラフ比較</button>
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="closeDetailModal">&times;</span>
+            <h3 id="detailModalHeader">資材別CO2排出内訳</h3>
+            <div id="detailModalBody">
+                <p>円グラフのセグメントをクリックすると、詳細な構成要素が表示されます。資材の使用量を変更したり、資材名をクリックして代替資材を選択した後、「グラフを全て更新」ボタンを押してください。</p>
+            </div>
+            <button id="updateChartButton">グラフを全て更新</button>
+        </div>
+    </div>
+
+    <div id="alternativeModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="closeAlternativeModal">&times;</span>
+            <h3 id="modalProductTitle">代替資材を選択</h3>
+            <div id="alternativeList">
+                </div>
+        </div>
+    </div>
+
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="closeHistoryModal">&times;</span>
+            <h3 id="historyModalTitle"></h3>
+            <div id="historyList">
+                </div>
+        </div>
+    </div>
+
+    <div id="comparisonChartModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="closeComparisonChartModal">&times;</span>
+            <h2>CO2排出量比較</h2>
+            <div class="chart-comparison-container">
+                <div class="chart-comparison-item">
+                    <h4>変更前</h4>
+                    <canvas id="initialPieChartCanvas"></canvas>
+                    <div style="text-align: center; margin-top: 10px; font-weight: bold;">
+                        合計: <span id="initialModalTotal">0 kg-CO2</span>
+                    </div>
+                </div>
+                <div class="chart-comparison-item">
+                    <h4>変更後</h4>
+                    <canvas id="currentPieChartCanvas"></canvas>
+                    <div style="text-align: center; margin-top: 10px; font-weight: bold;">
+                        合計: <span id="currentModalTotal">0 kg-CO2</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 円グラフのラベル（工程名）を上から8個に絞る
+        const pieChartLabels = [
+            '直接仮設', '土', '杭・基礎', 'コンクリート', 'PCコンクリート躯体', '鉄骨', '鉄筋', '屋根'
+        ];
+        let pieChartDataValues = []; // 現在の円グラフのデータ
+        let initialPieChartDataValues = []; // 変更前の円グラフのデータ（初期値）
+
+        // 円グラフの背景色 (ラベル数に合わせて色を調整)
+        const pieChartBackgroundColors = [
+            'rgba(255, 99, 132, 0.8)', // 赤
+            'rgba(54, 162, 235, 0.8)', // 青
+            'rgba(255, 206, 86, 0.8)', // 黄
+            'rgba(75, 192, 192, 0.8)', // 緑
+            'rgba(153, 102, 255, 0.8)', // 紫
+            'rgba(255, 159, 64, 0.8)', // オレンジ
+            'rgba(199, 255, 132, 0.8)', // ライム
+            'rgba(132, 255, 217, 0.8)' // ターコイズ
+        ];
+        const hoverOffset = 20;
+
+        // 各工程の資材別詳細データ（変更前データ）
+        const initialDetailData = new Map();
+
+        // コンクリートの項目（数量をさらに調整）
+        initialDetailData.set('コンクリート', new Map([
+            ['デッキ床コンクリート', {
+                unitPrice: 350, // kg-CO2/m³ (Fc27N相当の仮定値)
+                quantity: 2.2,
+                unit: 'm³',
+                currentAltName: 'コンクリート(ポルトランド) Fc27N',
+                alternatives: [
+                    { name: 'コンクリート(ポルトランド) Fc27N', price: 350 },
+                    { name: '高炉セメントA種 Fc27N', price: 300 },
+                    { name: '低炭素型コンクリートAA Fc27N', price: 280 },
+                    { name: '再生骨材コンクリート Fc27N', price: 320 },
+                    { name: 'フライアッシュコンクリート Fc27N', price: 290 }
+                ],
+                changeHistory: []
+            }],
+            ['基礎コンクリート', {
+                unitPrice: 300, // kg-CO2/m³ (Fc21N相当の仮定値)
+                quantity: 1.2,
+                unit: 'm³',
+                currentAltName: 'コンクリート(ポルトランド) Fc21N',
+                alternatives: [
+                    { name: 'コンクリート(ポルトランド) Fc21N', price: 300 },
+                    { name: '高炉セメントB種 Fc21N', price: 260 },
+                    { name: '低炭素型コンクリートXX Fc21N', price: 240 },
+                    { name: '地盤改良材混入コンクリート Fc21N', price: 270 },
+                    { name: '石炭灰コンクリート Fc21N', price: 250 }
+                ],
+                changeHistory: []
+            }],
+            ['2F床コンクリート', {
+                unitPrice: 300, // kg-CO2/m³ (Fc21N相当の仮定値)
+                quantity: 0.7,
+                unit: 'm³',
+                currentAltName: 'コンクリート(ポルトランド) Fc21N',
+                alternatives: [
+                    { name: 'コンクリート(ポルトランド) Fc21N', price: 300 },
+                    { name: '高炉セメントB種 Fc21N', price: 260 },
+                    { name: '低炭素型コンクリートXX Fc21N', price: 240 },
+                    { name: '軽量骨材コンクリート Fc21N', price: 280 },
+                    { name: '繊維補強コンクリート Fc21N', price: 275 }
+                ],
+                changeHistory: []
+            }],
+            ['ドック棟コンクリート', {
+                unitPrice: 284, // kg-CO2/m³ (画像から取得)
+                quantity: 0.4,
+                unit: 'm³',
+                currentAltName: 'コンクリート(ポルトランド) Fc18N',
+                alternatives: [
+                    { name: 'コンクリート(ポルトランド) Fc18N', price: 284 },
+                    { name: '高炉セメントA種', price: 257 },
+                    { name: '高炉セメントB種', price: 230 },
+                    { name: '高炉セメントC種', price: 203 },
+                    { name: '低炭素型コンクリートAA', price: 256 },
+                    { name: '低炭素型コンクリートXX', price: 215 },
+                    { name: 'シラスコンクリート Fc18N', price: 265 },
+                    { name: '廃ガラス骨材コンクリート Fc18N', price: 240 }
+                ],
+                changeHistory: []
+            }],
+            ['捨てコンクリート', {
+                unitPrice: 284, // kg-CO2/m³ (画像から取得)
+                quantity: 0.1,
+                unit: 'm³',
+                currentAltName: 'コンクリート(ポルトランド) Fc18N',
+                alternatives: [
+                    { name: 'コンクリート(ポルトランド) Fc18N', price: 284 },
+                    { name: '高炉セメントA種', price: 257 },
+                    { name: '高炉セメントB種', price: 230 },
+                    { name: '高炉セメントC種', price: 203 },
+                    { name: '低炭素型コンクリートAA', price: 256 },
+                    { name: '低炭素型コンクリートXX', price: 215 },
+                    { name: '石膏ボード再生骨材コンクリート Fc18N', price: 270 },
+                    { name: '木質チップ混入コンクリート Fc18N', price: 255 }
+                ],
+                changeHistory: []
+            }]
+        ]));
+
+        // その他の7項目は、バランスを考慮して数量を調整し、代替資材も追加
+        initialDetailData.set('直接仮設', new Map([
+            ['仮設材A', { unitPrice: 0.1, quantity: 1500, unit: '個', currentAltName: '標準仮設材A',
+                alternatives: [
+                    { name: '標準仮設材A', price: 0.1 },
+                    { name: '軽量仮設材A', price: 0.08 },
+                    { name: '再利用可能仮設材A', price: 0.05 },
+                    { name: '高強度仮設材A', price: 0.12 }
+                ], changeHistory: [] }]
+        ]));
+        initialDetailData.set('土', new Map([
+            ['土', { unitPrice: 0.05, quantity: 2000, unit: 'm³', currentAltName: '標準土',
+                alternatives: [
+                    { name: '標準土', price: 0.05 },
+                    { name: '現地発生土再利用', price: 0.02 },
+                    { name: '改良土', price: 0.04 },
+                    { name: '軽量盛土材', price: 0.06 }
+                ], changeHistory: [] }]
+        ]));
+        initialDetailData.set('杭・基礎', new Map([
+            ['基礎材B', { unitPrice: 0.2, quantity: 800, unit: '本', currentAltName: '標準基礎材B',
+                alternatives: [
+                    { name: '標準基礎材B', price: 0.2 },
+                    { name: '低炭素鋼杭', price: 0.18 },
+                    { name: '地盤補強基礎材', price: 0.15 },
+                    { name: 'PC基礎材B', price: 0.17 }
+                ], changeHistory: [] }]
+        ]));
+        initialDetailData.set('PCコンクリート躯体', new Map([
+            ['PC部材C', { unitPrice: 0.4, quantity: 700, unit: '個', currentAltName: '標準PC部材C',
+                alternatives: [
+                    { name: '標準PC部材C', price: 0.4 },
+                    { name: '高強度PC部材C', price: 0.35 },
+                    { name: '軽量PC部材C', price: 0.38 },
+                    { name: '再生材混入PC部材C', price: 0.32 }
+                ], changeHistory: [] }]
+        ]));
+        initialDetailData.set('鉄骨', new Map([
+            ['鉄骨材D', { unitPrice: 1.5, quantity: 300, unit: 'トン', currentAltName: '標準鉄骨材D',
+                alternatives: [
+                    { name: '標準鉄骨材D', price: 1.5 },
+                    { name: '高張力鋼材D', price: 1.3 },
+                    { name: '再生鉄骨材D', price: 1.1 },
+                    { name: '軽量形鋼材D', price: 1.4 }
+                ], changeHistory: [] }]
+        ]));
+        initialDetailData.set('鉄筋', new Map([
+            ['鉄筋材E', { unitPrice: 1.0, quantity: 500, unit: 'トン', currentAltName: '標準鉄筋材E',
+                alternatives: [
+                    { name: '標準鉄筋材E', price: 1.0 },
+                    { name: '高強度鉄筋材E', price: 0.9 },
+                    { name: '再生鉄筋材E', price: 0.8 },
+                    { name: '耐食性鉄筋材E', price: 1.1 }
+                ], changeHistory: [] }]
+        ]));
+        initialDetailData.set('屋根', new Map([
+            ['屋根材F', { unitPrice: 0.25, quantity: 1200, unit: 'm²', currentAltName: '標準屋根材F',
+                alternatives: [
+                    { name: '標準屋根材F', price: 0.25 },
+                    { name: '太陽光発電一体型屋根材F', price: 0.2 },
+                    { name: '高断熱屋根材F', price: 0.22 },
+                    { name: 'リサイクル樹脂屋根材F', price: 0.18 }
+                ], changeHistory: [] }]
+        ]));
+
+        // detailData は initialDetailData のディープコピーとして開始します
+        // Mapを正しくディープコピーするための関数
+        function deepCopyMap(originalMap) {
+            const newMap = new Map();
+            originalMap.forEach((value, key) => {
+                if (value instanceof Map) {
+                    newMap.set(key, deepCopyMap(value)); // ネストされたMapを再帰的にコピー
+                } else if (typeof value === 'object' && value !== null) {
+                    // オブジェクトのディープコピー（alternativesとchangeHistoryも）
+                    const copiedObject = { ...value }; // シャローコピー
+                    if (Array.isArray(copiedObject.alternatives)) {
+                        copiedObject.alternatives = copiedObject.alternatives.map(item => ({ ...item })); // 配列内のオブジェクトもディープコピー
+                    }
+                    if (Array.isArray(copiedObject.changeHistory)) {
+                        copiedObject.changeHistory = copiedObject.changeHistory.map(item => ({ ...item })); // 配列内のオブジェクトもディープコピー
+                    }
+                    newMap.set(key, copiedObject);
+                } else {
+                    newMap.set(key, value); // プリミティブ値はそのままコピー
+                }
+            });
+            return newMap;
+        }
+
+        // detailData を初期化
+        const detailData = deepCopyMap(initialDetailData);
+
+
+        let pieChart; // Chart.js 円グラフインスタンス (メイン)
+        let barChart; // Chart.js 棒グラフインスタンス (メイン)
+        let initialModalPieChart; // 変更前グラフモーダル内の円グラフインスタンス
+        let currentModalPieChart; // 変更後グラフモーダル内の円グラフインスタンス
+
+        let currentSelectedRegion = null; // 現在選択されている工程
+        let currentSelectedProduct = null; // 現在モーダルが開かれている資材名（代替選択用）
+
+        // 変更前の円グラフ全体の合計排出量を保持する変数
+        // この変数はページロード時に一度だけ初期化され、更新ボタンで上書きされない
+        let initialGlobalTotalAmount = 0; // kg-CO2
+
+
+        // === グローバル合計排出量関連の関数 ===
+        // 各工程の合計排出量を計算し、pieChartDataValues を更新
+        function calculatePieChartData() {
+            pieChartDataValues = pieChartLabels.map(region => {
+                const products = detailData.get(region);
+                if (products) {
+                    // 各資材の (原単位 * 数量) を合計
+                    return Array.from(products.values()).reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+                }
+                return 0;
+            });
+        }
+
+        // initialPieChartDataValues を計算する関数
+        function calculateInitialPieChartData() {
+            initialPieChartDataValues = pieChartLabels.map(region => {
+                const products = initialDetailData.get(region);
+                if (products) {
+                    return Array.from(products.values()).reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+                }
+                return 0;
+            });
+        }
+
+
+        // 全体の合計排出量を計算し、表示を更新
+        function updateGlobalTotalAmount() {
+            const currentGlobalTotal = pieChartDataValues.reduce((sum, value) => sum + value, 0);
+            document.getElementById('globalTotalAmount').innerText = currentGlobalTotal.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' kg-CO2';
+            updateComparisonDisplay(currentGlobalTotal, 'pie'); // 円グラフ用の比較表示も更新
+            updateComparisonDisplay(currentGlobalTotal, 'bar'); // 棒グラフ用の比較表示も更新
+        }
+
+        // === 比較表示関連の関数 ===
+        function updateComparisonDisplay(currentTotal, targetChart) {
+            const initialTotalId = (targetChart === 'pie') ? 'initialGlobalTotalAmount' : 'barInitialTotalAmount';
+            const diffAmountId = (targetChart === 'pie') ? 'diffAmount' : 'barDiffAmount';
+            const percentageChangeId = (targetChart === 'pie') ? 'percentageChange' : 'barPercentageChange';
+
+            const diffAmountElement = document.getElementById(diffAmountId);
+            const percentageChangeElement = document.getElementById(percentageChangeId);
+            const initialTotalElement = document.getElementById(initialTotalId);
+
+            const diff = currentTotal - initialGlobalTotalAmount; // ここで常に初期値と比較
+            const percentage = (initialGlobalTotalAmount === 0) ? 0 : (diff / initialGlobalTotalAmount) * 100;
+
+            // 変更前合計の表示
+            initialTotalElement.innerText = initialGlobalTotalAmount.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' kg-CO2';
+
+            // 差額の表示
+            let diffText = '';
+            if (diff > 0) {
+                diffText = `+${diff.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg-CO2`;
+                diffAmountElement.className = 'positive';
+            } else if (diff < 0) {
+                diffText = `${diff.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg-CO2`; // マイナス記号はすでに含まれる
+                diffAmountElement.className = 'negative';
+            } else {
+                diffText = `0 kg-CO2`;
+                diffAmountElement.className = '';
+            }
+            diffAmountElement.innerText = diffText;
+
+            // 増減率の表示
+            let percentageText = '';
+            if (percentage > 0) {
+                percentageText = `+${percentage.toFixed(2)}%`;
+                percentageChangeElement.className = 'positive';
+            } else if (percentage < 0) {
+                percentageText = `${percentage.toFixed(2)}%`;
+                percentageChangeElement.className = 'negative';
+            } else {
+                percentageText = `0.00%`;
+                percentageChangeElement.className = '';
+            }
+            percentageChangeElement.innerText = percentageText;
+        }
+
+
+        // === 円グラフの描画 ===
+        function drawPieChart() {
+            calculatePieChartData(); // 最新のデータで円グラフの値を計算
+
+            const ctx = document.getElementById('pieChartCanvas').getContext('2d');
+
+            if (pieChart) {
+                pieChart.destroy(); // 既存のグラフがあれば破棄
+            }
+
+            Chart.register(ChartDataLabels); // datalabels プラグインを登録
+
+            pieChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: pieChartLabels,
+                    datasets: [{
+                        data: pieChartDataValues,
+                        backgroundColor: pieChartBackgroundColors,
+                        hoverOffset: hoverOffset,
+                        datalabels: {
+                            color: '#fff',
+                            font: { weight: 'bold', size: 14 },
+                            formatter: (value, context) => {
+                                const total = context.chart.data.datasets[0].data.reduce((sum, current) => sum + current, 0);
+                                const percentage = (total === 0) ? 0 : ((value / total) * 100).toFixed(1); // 0除算対策
+                                return `${percentage}%`; // パーセンテージのみを表示
+                            }
+                        }
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: { display: true, text: 'CO2排出量（変更後）', font: { size: 24, family: 'Arial' }, padding: { top: 10, bottom: 20 } },
+                        legend: { position: 'right', labels: { font: { size: 14 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((sum, current) => sum + current, 0);
+                                    const percentage = (total === 0) ? 0 : ((value / total) * 100).toFixed(1); // 0除算対策
+                                    return `${label}: ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg-CO2 (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const clickedElement = elements[0];
+                            const index = clickedElement.index;
+                            currentSelectedRegion = pieChartLabels[index];
+
+                            displayDetailTable(currentSelectedRegion);
+                            // モーダルを表示
+                            document.getElementById('detailModal').style.display = 'block';
+                        }
+                    }
+                }
+            });
+            updateGlobalTotalAmount(); // 初回描画時にも合計排出量と比較表示を更新
+        }
+
+        // === 棒グラフの描画 ===
+        function drawBarChart(initialTotal, currentTotal) {
+            const ctx = document.getElementById('barChartCanvas').getContext('2d');
+
+            if (barChart) {
+                barChart.destroy(); // 既存のグラフがあれば破棄
+            }
+
+            barChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['変更前合計', '変更後合計'],
+                    datasets: [{
+                        label: 'CO2排出量',
+                        data: [initialTotal, currentTotal],
+                        backgroundColor: [
+                            'rgba(75, 192, 192, 0.8)', // 変更前: 青緑
+                            'rgba(153, 102, 255, 0.8)' // 変更後: 紫
+                        ],
+                        borderColor: [
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '総CO2排出量の比較', // タイトルを変更
+                            font: {
+                                size: 20
+                            }
+                        },
+                        legend: {
+                            display: false // 凡例は不要
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.dataset.label || '';
+                                    const value = context.parsed.y;
+                                    return `${context.label}: ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg-CO2`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'CO2排出量 (kg-CO2)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString() + ' kg-CO2';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // === 詳細テーブル関連の関数 ===
+        const detailModal = document.getElementById('detailModal');
+        const closeDetailModalButton = document.getElementById('closeDetailModal');
+        const detailModalHeader = document.getElementById('detailModalHeader');
+        const detailModalBody = document.getElementById('detailModalBody');
+        const updateChartButton = document.getElementById('updateChartButton'); // モーダル内のボタン
+
+        // 詳細な表をモーダルに表示する関数
+        function displayDetailTable(region) {
+            const products = detailData.get(region); // products は資材を指す
+
+            if (products) {
+                detailModalHeader.innerText = `${region}の資材別CO2排出内訳`;
+                let tableHtml = '<table><thead><tr><th>資材</th><th>単位</th><th>原単位<br>(kg-CO2/単位)</th><th>数量</th><th>排出量<br>(kg-CO2)</th></tr></thead><tbody>';
+                let totalAmount = 0;
+
+                products.forEach((item, product) => {
+                    const currentAmount = item.unitPrice * item.quantity;
+                    tableHtml += `<tr>
+                                    <td>
+                                        <span class="product-name" data-region="${region}" data-product="${product}">${item.currentAltName}</span>
+                                    </td>
+                                    <td>${item.unit}</td>
+                                    <td id="unitPrice-${product}">${item.unitPrice.toLocaleString(undefined, { maximumFractionDigits: 3 })}</td>
+                                    <td><input type="number" data-product="${product}" value="${item.quantity}" min="0" step="0.01"></td>
+                                    <td class="amount-cell" id="amount-${product}">${currentAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                                  </tr>`;
+                    totalAmount += currentAmount;
+                });
+
+                tableHtml += `<tr class="total-row">
+                                <td colspan="4">合計</td>
+                                <td id="regionTotal" class="amount-cell">${totalAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg-CO2</td>
+                              </tr>`;
+                tableHtml += '</tbody></table>';
+                detailModalBody.innerHTML = tableHtml;
+
+                // 使用量入力フィールドにイベントリスナーを設定
+                const quantityInputs = detailModalBody.querySelectorAll('input[type="number"]');
+                quantityInputs.forEach(input => {
+                    input.addEventListener('change', handleQuantityChange);
+                    input.addEventListener('input', handleQuantityChange);
+                });
+
+                // 資材名（代替資材選択トリガー）にイベントリスナーを設定
+                const productNames = detailModalBody.querySelectorAll('.product-name');
+                productNames.forEach(span => {
+                    span.addEventListener('click', handleProductNameClick);
+                });
+
+            } else {
+                detailModalHeader.innerText = '詳細データはありません。';
+                detailModalBody.innerHTML = '<p>円グラフのセグメントをクリックすると、詳細な構成要素が表示されます。資材の使用量を変更したり、資材名をクリックして代替資材を選択した後、「グラフを全て更新」ボタンを押してください。</p>';
+            }
+        }
+
+        // 使用量入力フィールドが変更されたときのハンドラー
+        function handleQuantityChange(event) {
+            const inputElement = event.target;
+            const product = inputElement.dataset.product;
+            const newQuantity = parseFloat(inputElement.value);
+
+            if (isNaN(newQuantity) || newQuantity < 0) {
+                alert('有効な数値を入力してください。');
+                inputElement.value = detailData.get(currentSelectedRegion).get(product).quantity;
+                return;
+            }
+
+            const productData = detailData.get(currentSelectedRegion).get(product);
+            productData.quantity = newQuantity;
+
+            const newAmount = productData.unitPrice * productData.quantity; // 排出量
+            document.getElementById(`amount-${product}`).innerText = newAmount.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+            updateRegionTotal(currentSelectedRegion);
+        }
+
+        // 工程の合計排出量を更新し、表に表示
+        function updateRegionTotal(region) {
+            const products = detailData.get(region);
+            let newTotal = 0;
+            if (products) {
+                newTotal = Array.from(products.values()).reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+            }
+            const regionTotalElement = document.getElementById('regionTotal');
+            if (regionTotalElement) {
+                regionTotalElement.innerText = `${newTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg-CO2`;
+            }
+        }
+
+        // 詳細モーダルを閉じるボタン
+        closeDetailModalButton.addEventListener('click', () => {
+            detailModal.style.display = 'none';
+        });
+
+        // 詳細モーダルの外側をクリックで閉じる
+        window.addEventListener('click', (event) => {
+            if (event.target === detailModal) {
+                detailModal.style.display = 'none';
+            }
+        });
+
+
+        // === 代替項目選択用モーダル関連の関数 ===
+        const alternativeModal = document.getElementById('alternativeModal');
+        const closeAlternativeModalButton = document.getElementById('closeAlternativeModal');
+        const modalProductTitle = document.getElementById('modalProductTitle');
+        const alternativeListDiv = document.getElementById('alternativeList');
+
+        // 資材名クリック時のハンドラー (代替資材選択)
+        function handleProductNameClick(event) {
+            const spanElement = event.target;
+            const region = spanElement.dataset.region;
+            const product = spanElement.dataset.product;
+
+            currentSelectedRegion = region;
+            currentSelectedProduct = product;
+
+            const productData = detailData.get(region).get(product);
+            if (!productData || !productData.alternatives || productData.alternatives.length === 0) {
+                alert('この資材には代替項目がありません。');
+                return;
+            }
+
+            modalProductTitle.innerText = `${product} の代替資材`;
+            
+            let tableHtml = '<table><thead><tr><th>資材</th><th>単位</th><th class="alt-price-cell">原単位<br>(kg-CO2/単位)</th></tr></thead><tbody>';
+            productData.alternatives.forEach(alt => {
+                tableHtml += `<tr class="alt-item" data-alt-name="${alt.name}" data-alt-price="${alt.price}">
+                                <td>${alt.name}</td>
+                                <td>${productData.unit}</td> <td class="alt-price-cell">${alt.price.toLocaleString(undefined, { maximumFractionDigits: 3 })}</td>
+                              </tr>`;
+            });
+            tableHtml += '</tbody></table>';
+            alternativeListDiv.innerHTML = tableHtml;
+
+            const altItems = alternativeListDiv.querySelectorAll('.alt-item');
+            altItems.forEach(item => {
+                item.addEventListener('click', handleAlternativeSelect);
+            });
+
+            alternativeModal.style.display = 'block';
+        }
+
+        // 代替資材が選択されたときのハンドラー
+        function handleAlternativeSelect(event) {
+            const selectedAltItemRow = event.target.closest('.alt-item');
+            if (!selectedAltItemRow) return;
+
+            const altName = selectedAltItemRow.dataset.altName;
+            const altPrice = parseFloat(selectedAltItemRow.dataset.altPrice);
+
+            if (currentSelectedRegion && currentSelectedProduct) {
+                const productData = detailData.get(currentSelectedRegion).get(currentSelectedProduct);
+
+                // 変更前の情報を記録
+                const previousAltName = productData.currentAltName;
+                const previousUnitPrice = productData.unitPrice;
+
+                // 新しい情報に更新
+                productData.currentAltName = altName;
+                productData.unitPrice = altPrice;
+
+                // 変更履歴に追加
+                if (previousAltName !== altName || previousUnitPrice !== altPrice) {
+                    productData.changeHistory.push({
+                        timestamp: new Date().toLocaleString(),
+                        region: currentSelectedRegion,
+                        product: currentSelectedProduct, // これは元の資材名 (例: デッキ床コンクリート)
+                        fromName: previousAltName,
+                        fromUnitPrice: previousUnitPrice,
+                        toName: altName, // 変更後の資材名
+                        toUnitPrice: altPrice, // 変更後の原単位
+                        unit: productData.unit // 資材の単位
+                    });
+                    // 履歴が更新されたら、棒グラフ下の履歴表示も更新
+                    updateHistoryDisplayArea();
+                }
+
+                const newAmount = productData.unitPrice * productData.quantity;
+
+                // detailModalBody内の要素を更新する
+                document.querySelector(`#detailModalBody .product-name[data-product="${currentSelectedProduct}"]`).innerText = altName;
+                document.getElementById(`unitPrice-${currentSelectedProduct}`).innerText = altPrice.toLocaleString(undefined, { maximumFractionDigits: 3 });
+                document.getElementById(`amount-${currentSelectedProduct}`).innerText = newAmount.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+                updateRegionTotal(currentSelectedRegion);
+            }
+
+            alternativeModal.style.display = 'none';
+        }
+
+        // 代替選択モーダルを閉じるボタン
+        closeAlternativeModalButton.addEventListener('click', () => {
+            alternativeModal.style.display = 'none';
+        });
+
+        // 代替選択モーダルの外側をクリックで閉じる
+        window.addEventListener('click', (event) => {
+            if (event.target === alternativeModal) {
+                alternativeModal.style.display = 'none';
+            }
+        });
+
+        // === 変更履歴表示用モーダルおよびエリア関連の関数 ===
+        const historyModal = document.getElementById('historyModal'); // このモーダルはもはや使われないが、HTMLに残っている場合
+        const closeHistoryModalButton = document.getElementById('closeHistoryModal'); // 同上
+        const historyModalTitle = document.getElementById('historyModalTitle'); // 同上
+        const historyListDiv = document.getElementById('historyList'); // 同上
+        // const showAllHistoryButton = document.getElementById('showAllHistoryButton'); // 削除されたのでコメントアウト
+        const historyDisplayArea = document.getElementById('historyDisplayArea'); // 新しい履歴表示エリア
+        const historyContentDiv = historyDisplayArea.querySelector('.history-content');
+
+
+        // 全体の履歴ボタンクリック時のハンドラー (この部分は削除される)
+        // showAllHistoryButton.addEventListener('click', () => {
+        //     displayAllChangeHistory(historyListDiv); // モーダルに表示
+        //     historyModal.style.display = 'block';
+        // });
+
+        // 全ての資材の変更履歴を表示する関数 (モーダルと棒グラフ下の両方で再利用)
+        function displayAllChangeHistory(targetDiv) {
+            let allHistory = [];
+
+            detailData.forEach(productsMap => {
+                productsMap.forEach(productInfo => {
+                    allHistory = allHistory.concat(productInfo.changeHistory);
+                });
+            });
+
+            allHistory.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // 日時でソート
+
+            if (allHistory.length === 0) {
+                targetDiv.innerHTML = '<p>変更履歴はありません。</p>';
+                return;
+            }
+
+            // ヘッダーを変更後の資材名と単位を含めるように修正
+            let tableHtml = '<table><thead><tr><th>日時</th><th>工程</th><th>資材名(変更前)</th><th>原単位(変更前)</th><th>資材名(変更後)</th><th>原単位(変更後)</th><th>単位</th></tr></thead><tbody>';
+            allHistory.forEach(history => {
+                tableHtml += `<tr>
+                                <td>${history.timestamp}</td>
+                                <td>${history.region}</td>
+                                <td>${history.fromName}</td>
+                                <td>${history.fromUnitPrice.toLocaleString(undefined, { maximumFractionDigits: 3 })}</td>
+                                <td>${history.toName}</td>
+                                <td>${history.toUnitPrice.toLocaleString(undefined, { maximumFractionDigits: 3 })}</td>
+                                <td>${history.unit}</td>
+                            </tr>`;
+            });
+            tableHtml += '</tbody></table>';
+            targetDiv.innerHTML = tableHtml;
+        }
+
+        // 棒グラフ下の履歴表示エリアを更新する関数
+        function updateHistoryDisplayArea() {
+            displayAllChangeHistory(historyContentDiv);
+        }
+
+        // 履歴モーダルを閉じるボタン (このボタンはもはや使われないが、HTMLに残っている場合)
+        closeHistoryModalButton.addEventListener('click', () => {
+            historyModal.style.display = 'none';
+        });
+
+        // 履歴モーダルの外側をクリックで閉じる (このロジックはもはや使われないが、HTMLに残っている場合)
+        window.addEventListener('click', (event) => {
+            if (event.target === historyModal) {
+                historyModal.style.display = 'none';
+            }
+        });
+
+        // === 比較グラフモーダル関連の関数 ===
+        const comparisonChartModal = document.getElementById('comparisonChartModal');
+        const closeComparisonChartModalButton = document.getElementById('closeComparisonChartModal');
+        const showInitialChartButton = document.getElementById('showInitialChartButton'); // 再取得
+
+
+        let initialPieChartInstance; // 比較モーダル内の変更前グラフインスタンス
+        let currentPieChartInstance; // 比較モーダル内の変更後グラフインスタンス
+
+        // 比較グラフモーダルを開くボタン
+        showInitialChartButton.addEventListener('click', () => {
+            // 必ず最新のデータでグラフを描画
+            calculatePieChartData(); // currentPieChartDataValues を最新に
+
+            // グラフを描画
+            drawInitialPieChartInModal();
+            drawCurrentPieChartInModal();
+
+            // 合計排出量の表示
+            document.getElementById('initialModalTotal').innerText = initialGlobalTotalAmount.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' kg-CO2';
+            const currentTotalForModal = pieChartDataValues.reduce((sum, value) => sum + value, 0);
+            document.getElementById('currentModalTotal').innerText = currentTotalForModal.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' kg-CO2';
+
+
+            comparisonChartModal.style.display = 'block';
+        });
+
+        // 比較モーダル内の変更前円グラフ描画関数
+        function drawInitialPieChartInModal() {
+            const ctx = document.getElementById('initialPieChartCanvas').getContext('2d');
+
+            if (initialPieChartInstance) {
+                initialPieChartInstance.destroy();
+            }
+            
+            Chart.register(ChartDataLabels);
+
+            initialPieChartInstance = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: pieChartLabels,
+                    datasets: [{
+                        data: initialPieChartDataValues,
+                        backgroundColor: pieChartBackgroundColors,
+                        hoverOffset: hoverOffset,
+                        datalabels: {
+                            color: '#fff',
+                            font: { weight: 'bold', size: 14 },
+                            formatter: (value, context) => {
+                                const total = context.chart.data.datasets[0].data.reduce((sum, current) => sum + current, 0);
+                                const percentage = (total === 0) ? 0 : ((value / total) * 100).toFixed(1);
+                                return `${percentage}%`;
+                            }
+                        }
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'right', labels: { font: { size: 12 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((sum, current) => sum + current, 0);
+                                    const percentage = (total === 0) ? 0 : ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg-CO2 (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 比較モーダル内の変更後円グラフ描画関数
+        function drawCurrentPieChartInModal() {
+            const ctx = document.getElementById('currentPieChartCanvas').getContext('2d');
+
+            if (currentPieChartInstance) {
+                currentPieChartInstance.destroy();
+            }
+
+            Chart.register(ChartDataLabels);
+
+            currentPieChartInstance = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: pieChartLabels,
+                    datasets: [{
+                        data: pieChartDataValues, // 最新のデータを使用
+                        backgroundColor: pieChartBackgroundColors,
+                        hoverOffset: hoverOffset,
+                        datalabels: {
+                            color: '#fff',
+                            font: { weight: 'bold', size: 14 },
+                            formatter: (value, context) => {
+                                const total = context.chart.data.datasets[0].data.reduce((sum, current) => sum + current, 0);
+                                const percentage = (total === 0) ? 0 : ((value / total) * 100).toFixed(1);
+                                return `${percentage}%`;
+                            }
+                        }
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'right', labels: { font: { size: 12 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((sum, current) => sum + current, 0);
+                                    const percentage = (total === 0) ? 0 : ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg-CO2 (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 比較グラフモーダルを閉じるボタン
+        closeComparisonChartModalButton.addEventListener('click', () => {
+            comparisonChartModal.style.display = 'none';
+        });
+
+        // 比較グラフモーダルの外側をクリックで閉じる
+        window.addEventListener('click', (event) => {
+            if (event.target === comparisonChartModal) {
+                comparisonChartModal.style.display = 'none';
+            }
+        });
+
+
+        // 更新ボタンクリック時のイベントリスナー
+        updateChartButton.addEventListener('click', updateAllChartsAndDisplays); // モーダル内のボタンにイベントリスナーを設定
+
+        // 全てのグラフと表示を更新するメイン関数
+        function updateAllChartsAndDisplays() {
+            calculatePieChartData(); // 各工程の合計と全体の合計を再計算（pieChartDataValues が最新になる）
+
+            const currentGlobalTotal = pieChartDataValues.reduce((sum, value) => sum + value, 0);
+
+            // 円グラフを更新
+            pieChart.data.datasets[0].data = pieChartDataValues;
+            pieChart.update();
+
+            // 棒グラフを更新
+            drawBarChart(initialGlobalTotalAmount, currentGlobalTotal); // 常に初期値と比較
+
+            // 合計排出量と差額・割合を更新
+            updateGlobalTotalAmount(); // この中で両方の比較表示が更新される
+
+            // 詳細モーダルを閉じる
+            detailModal.style.display = 'none';
+        }
+
+        // ページロード時に全てのグラフを描画
+        document.addEventListener('DOMContentLoaded', () => {
+            calculateInitialPieChartData(); // 初回ロード時に変更前データを計算
+            initialGlobalTotalAmount = initialPieChartDataValues.reduce((sum, value) => sum + value, 0); // 初期合計値を設定
+
+            drawPieChart(); // 変更後の現在の円グラフを描画
+            // 初回描画時の合計排出量を棒グラフに反映
+            const currentGlobalTotal = pieChartDataValues.reduce((sum, value) => sum + value, 0);
+            drawBarChart(initialGlobalTotalAmount, currentGlobalTotal); // 初回は変更前と変更後が同じ値（初期値）
+
+            updateHistoryDisplayArea(); // ページロード時に履歴表示エリアを初期化
+        });
+    </script>
+</body>
+</html>
