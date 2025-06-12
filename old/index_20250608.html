@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Chart.js IDEA製品算定 CO2排出量シミュレーション</title>
+    <title>Chart.js 資材算定 CO2排出量シミュレーション</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <style>
@@ -24,14 +24,7 @@
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 0.95em; }
         th { background-color: #eaf2f8; color: #2c3e50; }
-        td input[type="number"] {
-            width: 90%;
-            padding: 8px;
-            border: 1px solid #b0c4de;
-            border-radius: 4px;
-            box-sizing: border-box;
-            text-align: right;
-        }
+        td input[type="number"] { width: 90%; padding: 8px; border: 1px solid #b0c4de; border-radius: 4px; box-sizing: border-box; }
         .total-row { font-weight: bold; background-color: #d6eaf8; color: #2c3e50; }
         .amount-cell { font-weight: bold; text-align: right; }
         .estimate-item-link { cursor: pointer; color: #007bff; text-decoration: underline; margin-right: 5px; }
@@ -56,24 +49,14 @@
             border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 0.9em;
         }
         .modal-content th { background-color: #f2f2f2; }
-        /* IDEA製品別CO2排出内訳画面の原単位、数量、排出量を右寄せ */
+        /* 資材別CO2排出内訳画面の原単位、数量、排出量を右寄せ */
         /* 単位の位置変更に伴い、セレクタも修正 */
-        #detailModal .modal-content th:nth-child(2), /* 数量 */
-        #detailModal .modal-content td:nth-child(2),
-        #detailModal .modal-content th:nth-child(5), /* 原単位 */
-        #detailModal .modal-content td:nth-child(5),
-        #detailModal .modal-content th:nth-child(6), /* 排出量 */
-        #detailModal .modal-content td:nth-child(6) {
-            text-align: right;
-        }
-
-        /* 代替見積項目の一覧画面の数量、原単位、排出量を右寄せ */
-        #alternativeModal .modal-content th:nth-child(2), /* 数量 */
-        #alternativeModal .modal-content td:nth-child(2),
-        #alternativeModal .modal-content th:nth-child(5), /* 原単位 */
-        #alternativeModal .modal-content td:nth-child(5),
-        #alternativeModal .modal-content th:nth-child(6), /* 排出量 */
-        #alternativeModal .modal-content td:nth-child(6) {
+        .modal-content th:nth-child(3),
+        .modal-content td:nth-child(3), /* 原単位 */
+        .modal-content th:nth-child(4),
+        .modal-content td:nth-child(4), /* 数量 */
+        .modal-content th:nth-child(6),
+        .modal-content td:nth-child(6) { /* 排出量 */
             text-align: right;
         }
 
@@ -119,17 +102,13 @@
         #historyDisplayArea th:nth-child(2), #historyDisplayArea td:nth-child(2) { /* 工程 */
             width: 10%;
         }
-        #historyDisplayArea th:nth-child(3), #historyDisplayArea td:nth-child(3) { /* 見積項目 (変更前) */
-            width: 10%;
-        }
+        #historyDisplayArea th:nth-child(3), #historyDisplayArea td:nth-child(3), /* 見積項目 (変更前) */
         #historyDisplayArea th:nth-child(4), #historyDisplayArea td:nth-child(4) { /* 見積項目 (変更後) */
             width: 10%;
         }
-        #historyDisplayArea th:nth-child(5), #historyDisplayArea td:nth-child(5) { /* IDEA製品名 (変更前) */
+        #historyDisplayArea th:nth-child(5), #historyDisplayArea td:nth-child(5), /* 資材名 (変更前) */
+        #historyDisplayArea th:nth-child(6), #historyDisplayArea td:nth-child(6) { /* 資材名 (変更後) */
             width: 15%;
-        }
-        #historyDisplayArea th:nth-child(6), #historyDisplayArea td:nth-child(6) { /* IDEA製品名 (変更後) */
-            width: 15%; /* 幅は変更なし */
         }
         #historyDisplayArea th:nth-child(7), #historyDisplayArea td:nth-child(7), /* 原単位 (変更前) */
         #historyDisplayArea th:nth-child(8), #historyDisplayArea td:nth-child(8) { /* 原単位 (変更後) */
@@ -150,45 +129,42 @@
         /* 履歴テーブルの2行表示のためのスタイル */
         #historyDisplayArea td > div {
             display: flex;
-            flex-direction: column-reverse; /* 変更 */
+            flex-direction: column-reverse;
             justify-content: center;
             align-items: flex-start;
             height: 100%;
         }
-        /* 特定の列のdivを右寄せ */
-        #historyDisplayArea td:nth-child(1) > div { align-items: center; } /* 変更番号 */
+        /* 右寄せが必要なセル内のdivは個別に設定 */
+        #historyDisplayArea td:nth-child(1) > div, /* 変更番号 */
         #historyDisplayArea td:nth-child(7) > div,
         #historyDisplayArea td:nth-child(8) > div,
         #historyDisplayArea td:nth-child(9) > div,
         #historyDisplayArea td:nth-child(10) > div,
         #historyDisplayArea td:nth-child(11) > div,
         #historyDisplayArea td:nth-child(12) > div {
-            align-items: flex-end; /* 右寄せ */
+            align-items: flex-end; /* 右寄せにする */
         }
-        /* IDEA製品名の列は左寄せを維持 */
-        #historyDisplayArea td:nth-child(5) > div,
-        #historyDisplayArea td:nth-child(6) > div {
-            align-items: flex-start;
+        #historyDisplayArea td:nth-child(1) > div { /* 変更番号のテキストを中央揃えに */
+            align-items: center;
         }
 
 
         #historyDisplayArea td div > span {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 100%;
-            box-sizing: border-box;
-            padding: 2px 0;
-            display: block; /* spanをブロック要素にする */
-            text-align: left; /* テキストを左寄せにする */
+            white-space: nowrap; /* テキストの折り返しを防ぐ */
+            overflow: hidden;    /* はみ出した部分を隠す */
+            text-overflow: ellipsis; /* はみ出した部分を...で表示 */
+            max-width: 100%;     /* 親要素の幅に合わせる */
+            box-sizing: border-box; /* paddingを含めて幅を計算 */
+            padding: 2px 0; /* 少しパディングを追加 */
         }
         #historyDisplayArea td div span.current-value {
-            font-weight: bold;
-            color: #007bff;
+            font-weight: bold; /* 変更後を太字にする */
+            color: #007bff; /* 変更後の色を青にする */
         }
         #historyDisplayArea td div span.previous-value {
-            color: #555;
+            color: #555; /* 変更前の色をグレーにする */
         }
+
 
         #comparisonChartModal .modal-content { max-width: 1200px; width: 95%; }
         .chart-comparison-container { display: flex; justify-content: center; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
@@ -228,7 +204,7 @@
     <div id="historyDisplayArea">
         <h2>変更内容</h2>
         <div class="history-content">
-            <p>ここにIDEA製品の変更内容が表示されます。</p>
+            <p>ここに資材の変更内容が表示されます。</p>
         </div>
     </div>
 
@@ -237,9 +213,9 @@
     <div id="detailModal" class="modal">
         <div class="modal-content">
             <span class="close-button" id="closeDetailModal">&times;</span>
-            <h3 id="detailModalHeader">IDEA製品別CO2排出内訳</h3>
+            <h3 id="detailModalHeader">資材別CO2排出内訳</h3>
             <div id="detailModalBody">
-                <p>円グラフのセグメントをクリックすると、詳細な構成要素が表示されます。IDEA製品の使用量を変更したり、IDEA製品名をクリックして代替IDEA製品を選択した後、「グラフを全て更新」ボタンを押してください。</p>
+                <p>円グラフのセグメントをクリックすると、詳細な構成要素が表示されます。資材の使用量を変更したり、資材名をクリックして代替資材を選択した後、「グラフを全て更新」ボタンを押してください。</p>
             </div>
             <button id="updateChartButton" class="modal-button">グラフを全て更新</button>
         </div>
@@ -291,7 +267,6 @@
         ];
         const hoverOffset = 20;
 
-        // initialDetailData は定数として定義し、変更されないことを保証
         const initialDetailData = new Map();
 
         initialDetailData.set('コンクリート', new Map([
@@ -459,25 +434,20 @@
         ]);
 
 
-        // Mapとネストされたオブジェクトを深くコピーする関数
         function deepCopyMap(originalMap) {
             const newMap = new Map();
             originalMap.forEach((value, key) => {
                 if (value instanceof Map) {
-                    newMap.set(key, deepCopyMap(value)); // ネストされたMapも再帰的にコピー
-                } else if (Array.isArray(value)) {
-                    // 配列内のオブジェクトもコピー。プリミティブ値はそのまま
-                    newMap.set(key, value.map(item => typeof item === 'object' && item !== null ? { ...item } : item));
+                    newMap.set(key, deepCopyMap(value));
                 } else if (typeof value === 'object' && value !== null) {
-                    newMap.set(key, { ...value }); // オブジェクトをコピー
+                    newMap.set(key, { ...value });
                 } else {
-                    newMap.set(key, value); // プリミティブ値はそのまま
+                    newMap.set(key, value);
                 }
             });
             return newMap;
         }
 
-        // detailData は initialDetailData の深いコピーから始める
         const detailData = deepCopyMap(initialDetailData);
         let globalChangeLog = []; // 変更履歴を格納する配列
 
@@ -487,10 +457,10 @@
         let currentModalPieChart;
 
         let currentSelectedRegion = null;
-        let currentSelectedEstimateItemData = null; // クリックされたIDEA製品データ（detailData内の参照）
-        let currentOriginalEstimateItemName = null; // そのIDEA製品の元々の見積項目名（代替候補検索用）
-        let currentOriginalProductData = null; // 元々のIDEA製品のデータ（initialDetailDataから取得）
-        let currentProductNameKey = null; // 現在選択中のIDEA製品のキー（例: 'デッキ床コンクリート'）
+        let currentSelectedEstimateItemData = null; // クリックされた資材データ（detailData内の参照）
+        let currentOriginalEstimateItemName = null; // その資材の元々の見積項目名（代替候補検索用）
+        let currentOriginalProductData = null; // 元々の資材のデータ（initialDetailDataから取得）
+        let currentProductNameKey = null; // 現在選択中の資材のキー（例: 'デッキ床コンクリート'）
 
         let initialGlobalTotalAmount = 0;
 
@@ -688,9 +658,9 @@
             const products = detailData.get(region);
 
             if (products) {
-                detailModalHeader.innerText = `${region}のIDEA製品別CO2排出内訳`;
+                detailModalHeader.innerText = `${region}の資材別CO2排出内訳`;
                 // ヘッダーの順序を変更
-                let tableHtml = '<table><thead><tr><th>見積項目</th><th>数量</th><th>単位</th><th>IDEA製品</th><th>原単位<br>(kg-CO2/単位)</th><th>排出量<br>(kg-CO2)</th></tr></thead><tbody>';
+                let tableHtml = '<table><thead><tr><th>見積項目</th><th>資材</th><th>原単位<br>(kg-CO2/単位)</th><th>数量</th><th>単位</th><th>排出量<br>(kg-CO2)</th></tr></thead><tbody>';
                 let totalAmount = 0;
 
                 // Mapの順序を維持するために entries() を使用
@@ -700,16 +670,16 @@
                                     <td>
                                         <span class="estimate-item-link"
                                               data-region="${region}"
-                                              data-product-name-key="${productName}"
+                                              data-product="${productName}"
                                               data-original-estimate-item="${initialDetailData.get(region).get(productName).estimateItem}"
                                               data-original-product-name="${productName}">
                                             ${item.estimateItem || 'N/A'}
                                         </span>
                                     </td>
-                                    <td><input type="number" data-product-name-key="${productName}" value="${item.quantity}" min="0" step="0.01"></td>
-                                    <td>${item.unit}</td>
                                     <td>${item.currentAltName}</td>
                                     <td id="unitPrice-${productName}">${item.unitPrice.toLocaleString(undefined, { maximumFractionDigits: 3 })}</td>
+                                    <td><input type="number" data-product="${productName}" value="${item.quantity}" min="0" step="0.01"></td>
+                                    <td>${item.unit}</td>
                                     <td class="amount-cell" id="amount-${productName}">${currentAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
                                   </tr>`;
                     totalAmount += currentAmount;
@@ -724,13 +694,13 @@
 
             } else {
                 detailModalHeader.innerText = '詳細データはありません。';
-                detailModalBody.innerHTML = '<p>円グラフのセグメントをクリックすると、詳細な構成要素が表示されます。IDEA製品の使用量を変更したり、IDEA製品名をクリックして代替IDEA製品を選択した後、「グラフを全て更新」ボタンを押してください。</p>';
+                detailModalBody.innerHTML = '<p>円グラフのセグメントをクリックすると、詳細な構成要素が表示されます。資材の使用量を変更したり、資材名をクリックして代替資材を選択した後、「グラフを全て更新」ボタンを押してください。</p>';
             }
         }
 
         function handleQuantityChange(event) {
             const inputElement = event.target;
-            const productNameKey = inputElement.dataset.productNameKey; // productNameKeyを使用
+            const productNameKey = inputElement.dataset.product; // Mapのキーとして使用される'デッキ床コンクリート'など
             const newQuantity = parseFloat(inputElement.value);
 
             if (!currentSelectedRegion) {
@@ -836,26 +806,27 @@
         });
 
         function handleEstimateItemClick(linkElement) {
-            console.log(`[handleEstimateItemClick] START`);
+            console.log(`[handleEstimateItemClick] START - currentSelectedRegion: ${currentSelectedRegion}`);
 
             const region = linkElement.dataset.region;
-            const productNameKey = linkElement.dataset.productNameKey; // data-product-name-key から取得
+            const productNameKey = linkElement.dataset.product;
             currentOriginalEstimateItemName = linkElement.dataset.originalEstimateItem; // e.g., 'スラブA'
 
-            console.log(`[handleEstimateItemClick] Clicked: region=${region}, productNameKey=${productNameKey}, originalEstimateItem=${currentOriginalEstimateItemName}`);
+            currentSelectedEstimateItemData = detailData.get(region).get(productNameKey); // クリックされた資材の現在のデータを設定
 
-            // currentSelectedRegionとcurrentProductNameKeyを設定
-            currentSelectedRegion = region;
-            currentProductNameKey = productNameKey;
+            currentOriginalProductData = initialDetailData.get(region).get(productNameKey); // 元々の資材データ
+            currentProductNameKey = productNameKey; // 現在選択中の資材のキーを設定
 
-            // detailDataから現在のIDEA製品データを取得
-            currentSelectedEstimateItemData = detailData.get(currentSelectedRegion)?.get(currentProductNameKey);
-            // initialDetailDataから元のIDEA製品データを取得
-            currentOriginalProductData = initialDetailData.get(currentSelectedRegion)?.get(currentProductNameKey);
+            console.log('[handleEstimateItemClick] Clicked:', {
+                region: currentSelectedRegion,
+                productNameKey: productNameKey,
+                originalEstimateItemNameUsedForSearch: currentOriginalEstimateItemName,
+                currentSelectedEstimateItemData: currentSelectedEstimateItemData,
+                currentOriginalProductData: currentOriginalProductData
+            });
 
-            if (!currentSelectedEstimateItemData || !currentOriginalProductData) {
-                console.error(`[handleEstimateItemClick] Data not found for product: ${productNameKey} in region: ${currentSelectedRegion}. currentSelectedEstimateItemData:`, currentSelectedEstimateItemData, `currentOriginalProductData:`, currentOriginalProductData);
-                alert('IDEA製品データが見つかりません。');
+            if (!currentSelectedEstimateItemData) {
+                console.error(`[handleEstimateItemClick] currentSelectedEstimateItemData is null/undefined for product: ${productNameKey}. Aborting.`);
                 resetSelectedState();
                 return;
             }
@@ -866,27 +837,28 @@
             const originalItemAsAlternative = {
                 altEstimateItemName: currentOriginalProductData.estimateItem, // 元の見積項目名
                 materials: [{
-                    name: currentOriginalProductData.currentAltName, // 元のIDEA製品名
+                    name: currentOriginalProductData.currentAltName, // 元の資材名
                     unitPrice: currentOriginalProductData.unitPrice,
                     quantity: currentOriginalProductData.quantity,
                     unit: currentOriginalProductData.unit
                 }]
             };
 
-            // alternativesを新しい配列としてコピーし、元の項目がまだリストになければ追加
-            let alternativesWithOriginal = alternatives ? [...alternatives] : [];
-            const isOriginalAlreadyPresent = alternativesWithOriginal.some(alt =>
+            if (!alternatives) {
+                alternatives = []; // 代替候補がなければ空の配列を初期化
+            }
+            // 元の項目がすでに追加されていないか確認
+            const isOriginalAlreadyPresent = alternatives.some(alt =>
                 alt.altEstimateItemName === originalItemAsAlternative.altEstimateItemName &&
-                alt.materials[0].name === originalItemAsAlternative.materials[0].name &&
-                alt.materials[0].unitPrice === originalItemAsAlternative.materials[0].unitPrice // 単価も比較して厳密に同一か確認
+                alt.materials[0].name === originalItemAsAlternative.materials[0].name
             );
 
             if (!isOriginalAlreadyPresent) {
-                alternativesWithOriginal.unshift(originalItemAsAlternative); // 先頭に追加
+                alternatives.unshift(originalItemAsAlternative); // 先頭に追加
             }
 
 
-            if (!alternativesWithOriginal || alternativesWithOriginal.length === 0) {
+            if (!alternatives || alternatives.length === 0) {
                 console.warn(`[handleEstimateItemClick] No alternatives found for original estimate item: ${currentOriginalEstimateItemName}. Check 'alternativeComponentsData'.`);
                 alert(`「${currentOriginalEstimateItemName}」に対する代替見積項目がありません。`);
                 resetSelectedState();
@@ -896,22 +868,21 @@
             modalEstimateItemTitle.innerText = `「${currentOriginalEstimateItemName}」の代替見積項目を選択`;
 
             // 代替項目選択モーダルのヘッダーの順序も変更
-            // 見積項目、数量、単位、IDEA製品、原単位(kg-CO2/単位)、排出量(kg-CO2)
-            let tableHtml = '<table><thead><tr><th>見積項目</th><th>数量</th><th>単位</th><th>IDEA製品</th><th>原単位<br>(kg-CO2/単位)</th><th>排出量<br>(kg-CO2)</th></tr></thead><tbody>';
+            let tableHtml = '<table><thead><tr><th>見積項目</th><th>資材名</th><th>原単位<br>(kg-CO2/単位)</th><th>数量</th><th>単位</th><th>排出量<br>(kg-CO2)</th></tr></thead><tbody>';
 
-            alternativesWithOriginal.forEach((altEstimateItem, index) => {
+            alternatives.forEach((altEstimateItem, index) => {
                 const totalAltItemAmount = altEstimateItem.materials.reduce((sum, mat) => sum + (mat.unitPrice * mat.quantity), 0);
                 const firstMaterial = altEstimateItem.materials[0];
 
                 tableHtml += `<tr class="alt-item"
                                 data-alt-estimate-item-index="${index}"
                                 data-original-estimate-item-name="${currentOriginalEstimateItemName}"
-                                data-product-name-key="${currentProductNameKey}">
+                                data-product-name-key="${productNameKey}">
                                 <td>${altEstimateItem.altEstimateItemName}</td>
-                                <td>${firstMaterial.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                                <td>${firstMaterial.unit}</td>
                                 <td>${firstMaterial.name}</td>
                                 <td class="alt-price-cell">${firstMaterial.unitPrice.toLocaleString(undefined, { maximumFractionDigits: 3 })}</td>
+                                <td>${firstMaterial.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                                <td>${firstMaterial.unit}</td>
                                 <td class="alt-price-cell">${totalAltItemAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
                               </tr>`;
             });
@@ -923,98 +894,72 @@
         }
 
         function handleAlternativeSelect(selectedAltItemRow) {
-            console.log(`[handleAlternativeSelect] START`);
-            console.log(`Current state before processing:
-                currentSelectedRegion: ${currentSelectedRegion}
-                currentProductNameKey: ${currentProductNameKey}
-                currentOriginalEstimateItemName: ${currentOriginalEstimateItemName}`);
+            console.log(`[handleAlternativeSelect] START - currentSelectedRegion: ${currentSelectedRegion}, currentSelectedEstimateItemData:`, currentSelectedEstimateItemData, `currentOriginalEstimateItemName: ${currentOriginalEstimateItemName}`);
 
             const altEstimateItemIndex = parseInt(selectedAltItemRow.dataset.altEstimateItemIndex);
             const originalEstimateItemNameFromData = selectedAltItemRow.dataset.originalEstimateItemName;
-            const productNameKeyFromData = selectedAltItemRow.dataset.productNameKey;
+            const productNameKey = selectedAltItemRow.dataset.productNameKey; // この変数名は現在の関数スコープで定義されるため、グローバルなcurrentProductNameKeyとは異なる
 
-            console.log(`[handleAlternativeSelect] Data from clicked row:
-                altEstimateItemIndex: ${altEstimateItemIndex}
-                originalEstimateItemNameFromData: ${originalEstimateItemNameFromData}
-                productNameKeyFromData: ${productNameKeyFromData}`);
+            console.log('[handleAlternativeSelect] Processing:', {
+                region: currentSelectedRegion,
+                productNameKey: productNameKey,
+                originalEstimateItemNameFromData: originalEstimateItemNameFromData,
+                altEstimateItemIndex: altEstimateItemIndex
+            });
 
-            // 重要なチェック: currentProductNameKeyがセットされているか、データから取得したキーと一致するか
-            if (!currentSelectedRegion || !currentProductNameKey || currentProductNameKey !== productNameKeyFromData) {
-                console.error('[handleAlternativeSelect] State mismatch or missing critical data.');
-                console.error('Debug Info:', {
-                    currentSelectedRegion: currentSelectedRegion,
-                    currentProductNameKey: currentProductNameKey,
-                    productNameKeyFromData: productNameKeyFromData,
-                    currentOriginalEstimateItemName: currentOriginalEstimateItemName,
-                    originalEstimateItemNameFromData: originalEstimateItemNameFromData
-                });
+            if (!currentSelectedRegion || !currentSelectedEstimateItemData || !productNameKey || currentOriginalEstimateItemName !== originalEstimateItemNameFromData) {
+                console.error('[handleAlternativeSelect] State mismatch or missing data. currentSelectedEstimateItemData:', currentSelectedEstimateItemData, 'Expected originalEstimateItemName:', originalEstimateItemNameFromData, 'Actual currentOriginalEstimateItemName:', currentOriginalEstimateItemName);
                 alert('エラーが発生しました。再度お試しください。');
                 resetSelectedState();
-                return; // 処理を中止
+                return;
             }
 
-            // `detailData` から最新の参照を確実に取得し直す
-            currentSelectedEstimateItemData = detailData.get(currentSelectedRegion)?.get(currentProductNameKey);
-            if (!currentSelectedEstimateItemData) {
-                console.error(`[handleAlternativeSelect] currentSelectedEstimateItemData not found for region: ${currentSelectedRegion}, product: ${currentProductNameKey}.`);
-                alert('現在のIDEA製品データが見つかりません。');
-                resetSelectedState();
-                return; // 処理を中止
-            }
-
-            // 元の項目を含む代替候補のリストを再構築
             let alternativesForOriginalItem = alternativeComponentsData.get(originalEstimateItemNameFromData);
-            const originalProductDataInInitialDetail = initialDetailData.get(currentSelectedRegion)?.get(currentProductNameKey);
-
-            if (!originalProductDataInInitialDetail) {
-                console.error(`[handleAlternativeSelect] originalProductDataInInitialDetail not found for region: ${currentSelectedRegion}, product: ${currentProductNameKey}.`);
-                alert('元のIDEA製品データが見つかりません。');
-                resetSelectedState();
-                return; // 処理を中止
-            }
-
+            // ここでも元の項目を追加するロジックを再度実行し、alternativesForOriginalItemが元の項目を含んでいることを保証
             const originalItemAsAlternative = {
-                altEstimateItemName: originalProductDataInInitialDetail.estimateItem,
+                altEstimateItemName: currentOriginalProductData.estimateItem,
                 materials: [{
-                    name: originalProductDataInInitialDetail.currentAltName,
-                    unitPrice: originalProductDataInInitialDetail.unitPrice,
-                    quantity: originalProductDataInInitialDetail.quantity,
-                    unit: originalProductDataInInitialDetail.unit
+                    name: currentOriginalProductData.currentAltName,
+                    unitPrice: currentOriginalProductData.unitPrice,
+                    quantity: currentOriginalProductData.quantity,
+                    unit: currentOriginalProductData.unit
                 }]
             };
-
-            let alternativesWithOriginal = alternativesForOriginalItem ? [...alternativesForOriginalItem] : [];
-            const isOriginalAlreadyPresent = alternativesWithOriginal.some(alt =>
+            if (!alternativesForOriginalItem) {
+                alternativesForOriginalItem = [];
+            }
+            const isOriginalAlreadyPresent = alternativesForOriginalItem.some(alt =>
                 alt.altEstimateItemName === originalItemAsAlternative.altEstimateItemName &&
-                alt.materials[0].name === originalItemAsAlternative.materials[0].name &&
-                alt.materials[0].unitPrice === originalItemAsAlternative.materials[0].unitPrice
+                alt.materials[0].name === originalItemAsAlternative.materials[0].name
             );
             if (!isOriginalAlreadyPresent) {
-                alternativesWithOriginal.unshift(originalItemAsAlternative);
+                alternativesForOriginalItem.unshift(originalItemAsAlternative);
             }
 
-            if (!alternativesWithOriginal || !alternativesWithOriginal[altEstimateItemIndex]) {
-                console.error('[handleAlternativeSelect] Selected alternative not found or index out of bounds. Alternatives:', alternativesWithOriginal, 'Index:', altEstimateItemIndex);
-                alert('選択された代替項目が見つかりません。');
+
+            if (!alternativesForOriginalItem || !alternativesForOriginalItem[altEstimateItemIndex]) {
+                console.error('[handleAlternativeSelect] Selected alternative not found. Aborting.');
                 resetSelectedState();
-                return; // 処理を中止
+                return;
             }
 
-            const selectedAltEstimateItem = alternativesWithOriginal[altEstimateItemIndex];
+            const selectedAltEstimateItem = alternativesForOriginalItem[altEstimateItemIndex];
             const newMaterial = selectedAltEstimateItem.materials[0];
 
-            // 変更前の情報を記録 (常にoriginalProductDataInInitialDetailから取得)
+            // オリジナルデータから「変更前」の情報を取得
+            const originalProductData = initialDetailData.get(currentSelectedRegion).get(productNameKey);
+
+            // 変更前の情報を記録 (常にoriginalProductDataから取得)
             const previousInfo = {
-                estimateItem: originalProductDataInInitialDetail.estimateItem,
-                name: originalProductDataInInitialDetail.currentAltName,
-                unitPrice: originalProductDataInInitialDetail.unitPrice,
-                quantity: originalProductDataInInitialDetail.quantity,
-                unit: originalProductDataInInitialDetail.unit,
-                amount: originalProductDataInInitialDetail.unitPrice * originalProductDataInInitialDetail.quantity
+                estimateItem: originalProductData.estimateItem, // 見積項目も追加
+                name: originalProductData.currentAltName,
+                unitPrice: originalProductData.unitPrice,
+                quantity: originalProductData.quantity,
+                unit: originalProductData.unit,
+                amount: originalProductData.unitPrice * originalProductData.quantity // オリジナルの排出量
             };
 
-            // detailData 内の該当するIDEA製品データを更新
-            // currentSelectedEstimateItemDataはdetailData内のオブジェクトへの参照なので、直接更新する
+            // detailData 内の該当する資材データを更新
             currentSelectedEstimateItemData.estimateItem = selectedAltEstimateItem.altEstimateItemName;
             currentSelectedEstimateItemData.unitPrice = newMaterial.unitPrice;
             currentSelectedEstimateItemData.quantity = newMaterial.quantity;
@@ -1025,33 +970,33 @@
 
             // 同じregionとoriginalProductNameKeyを持つ既存の履歴を削除
             globalChangeLog = globalChangeLog.filter(log =>
-                !(log.region === currentSelectedRegion && log.originalProductNameKey === currentProductNameKey)
+                !(log.region === currentSelectedRegion && log.originalProductNameKey === productNameKey)
             );
 
             // グローバルな変更履歴に追加
             globalChangeLog.push({
-                timestamp: new Date().toLocaleString(),
-                type: 'alternative_replace',
+                timestamp: new Date().toLocaleString(), // 日時を記録 (表示はしないがデータとして保持)
+                type: 'alternative_replace', // 変更の種類 (表示はしないがデータとして保持)
                 region: currentSelectedRegion,
-                originalProductNameKey: currentProductNameKey,
+                originalProductNameKey: productNameKey, // 履歴追跡のために元のプロダクトキーを保持
                 previousEstimateItem: previousInfo.estimateItem,
                 previousProductName: previousInfo.name,
                 previousUnitPrice: previousInfo.unitPrice,
                 previousQuantity: previousInfo.quantity,
                 previousUnit: previousInfo.unit,
-                previousAmount: previousInfo.amount,
-                currentEstimateItem: selectedAltEstimateItem.altEstimateItemName,
+                previousAmount: previousInfo.amount, // 変更前の排出量
+                currentEstimateItem: selectedAltEstimateItem.altEstimateItemName, // 見積項目も追加
                 currentProductName: newMaterial.name,
                 currentUnitPrice: newMaterial.unitPrice,
                 currentQuantity: newMaterial.quantity,
                 currentUnit: newMaterial.unit,
-                currentAmount: newMaterial.unitPrice * newMaterial.quantity
+                currentAmount: newMaterial.unitPrice * newMaterial.quantity // 変更後の排出量
             });
 
             alternativeModal.style.display = 'none';
             displayDetailTable(currentSelectedRegion);
-            updateHistoryDisplayArea();
-            resetSelectedState(); // ここで状態をリセット
+            updateHistoryDisplayArea(); // 履歴表示を更新し、リナンバーをトリガー
+            resetSelectedState();
             console.log(`[handleAlternativeSelect] END - Alternative selected and state reset.`);
         }
 
@@ -1095,7 +1040,7 @@
                                         <th rowspan="2">変更番号</th>
                                         <th rowspan="2">工程</th>
                                         <th colspan="2">見積項目</th>
-                                        <th colspan="2">IDEA製品名</th>
+                                        <th colspan="2">資材名</th>
                                         <th colspan="2">原単位<br>(kg-CO2/単位)</th>
                                         <th colspan="2">数量</th>
                                         <th colspan="2">排出量<br>(kg-CO2)</th>
