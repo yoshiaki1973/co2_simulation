@@ -93,9 +93,6 @@
             max-width: 98%; margin-left: auto; margin-right: auto; box-sizing: border-box;
         }
         #historyDisplayArea h2 { margin-top: 0; margin-bottom: 15px; text-align: left; color: #2c3e50; }
-        <div class="history-content">
-            <p>ここにIDEA製品の変更内容が表示されます。</p>
-        </div>
         #historyDisplayArea .history-content {
             max-height: 250px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 5px; padding: 10px; background-color: #fdfdfd;
         }
@@ -203,7 +200,7 @@
     </style>
 </head>
 <body>
-    <h1>IDEA製品算定 CO2排出量シミュレーション</h1>
+    <h1>資材算定 CO2排出量シミュレーション</h1>
 
     <div class="chart-section">
         <div id="pieChartContainer">
@@ -591,7 +588,7 @@
                 options: {
                     responsive: true,
                     plugins: {
-                        title: { display: true, text: '工種別CO2排出量（変更後）', font: { size: 24, family: 'Arial' }, padding: { top: 10, bottom: 20 } },
+                        title: { display: true, text: 'CO2排出量（変更後）', font: { size: 24, family: 'Arial' }, padding: { top: 10, bottom: 20 } },
                         legend: { position: 'right', labels: { font: { size: 14 } } },
                         tooltip: {
                             callbacks: {
@@ -643,7 +640,7 @@
                             callbacks: {
                                 label: function(context) {
                                     const value = context.parsed.y;
-                                    return `${context.label}: ${(value / 1000).toLocaleString(undefined, { maximumFractionDigits: 2 })} t-CO2`;
+                                    return `${context.label}: ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} kg-CO2`;
                                 }
                             }
                         }
@@ -651,9 +648,9 @@
                     scales: {
                         y: {
                             beginAtZero: true,
-                            title: { display: true, text: 'CO2排出量 (t-CO2)' },
+                            title: { display: true, text: 'CO2排出量 (kg-CO2)' },
                             ticks: {
-                                callback: function(value) { return (value / 1000).toLocaleString() + ' t-CO2'; }
+                                callback: function(value) { return value.toLocaleString() + ' kg-CO2'; }
                             }
                         }
                     }
